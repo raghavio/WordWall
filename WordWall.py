@@ -9,59 +9,65 @@ def get_center_x(x, text_size_x):
     center_x = (x - text_size_x) / 2
     return center_x
 
-def get_center_y(y, text_size_y):
-    center_y = (y - text_size_y) / 2
-    return center_y
-
 def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
-    font_size = 28
-    font = ImageFont.truetype("Quote.ttf", font_size)
+    font_name, font_italic, font_size = "Definition.ttf", "Example.ttf", 28
+    font_normal = ImageFont.truetype(font_name, font_size)
+    font_italic = ImageFont.truetype(font_italic, font_size)
 
-    definition_1_start_y = synonyms_data[0] + synonyms_data[2]
-    definition_1_end_y = p_data[0]
+    definition_1_start_y = synonyms_data['synonyms_1_y'] + synonyms_data['synonyms_1_textsize_y']
+    definition_1_end_y = p_data['pronun_1_y']
     definition_1_area_y = definition_1_end_y - definition_1_start_y
 
-    definition_2_start_y = synonyms_data[1]
-    definition_2_end_y = p_data[1] + p_data[2]
+    definition_2_start_y = synonyms_data['synonyms_2_y']
+    definition_2_end_y = p_data['pronun_2_y'] + p_data['pronun_2_textsize_y']
     definition_2_area_y = definition_2_start_y - definition_2_end_y
 
-    for k in range(0, len(definition_data)): #Runs 2 times to display definition of 2 words
-        count = len(definition_data[k])
-        partition = definition_2_area_y / (count+1)
-        draw_data = []
-        for i in range(0, count):
+    length = [{'offset_y' : definition_1_start_y, 'area' : definition_1_area_y},
+                {'offset_y' : definition_2_end_y, 'area' : definition_2_area_y}]
+    draw_data = []
+    for k in range(0, len(definition_data)): #Runs 2 times to display definition(s) of 2 words
+        define_count = len(definition_data[k])
+        if define_count == 0: #If no definition found for word
+            continue
+        partition = length[k]['area'] / (define_count+1)
+        for i in range(0, define_count):
             definition = definition_data[k][i][1]['definition']
             example = definition_data[k][i][1]['example']
-            meaning_size = draw.textsize(definition, font)
-            example_size = draw.textsize(example, font) if example != None else (0, 0)
+            num_bullet = definition_data[k][i][1]['num_bullet']
+            meaning_size = draw.textsize(definition, font_normal)
+            example_size = draw.textsize(example, font_italic) if example != None else (0, 0)
+            num_bullet_size = draw.textsize(num_bullet, font_normal)
 
             border = x - (x / 15)
+            # or ((meaning_size[1] + example_size[1]) * define_count) > length[k]['area'] - (length[k]['area']/2.7)
             while (meaning_size[0] > border or example_size[0] > border): #Need to do for y as well?
                 font_size -= 1
-                font = ImageFont.truetype("Quote.ttf", font_size)
-                meaning_size = draw.textsize(definition, font)
-                example_size = draw.textsize(example, font)
+                font_normal = ImageFont.truetype(font_name, font_size)
+                font_italic = ImageFont.truetype(font_italic, font_size)
+                meaning_size = draw.textsize(definition, font_normal)
+                example_size = draw.textsize(example, font_italic) if example != None else (0, 0)
             meaning_x = get_center_x(x, meaning_size[0])
-            meaning_y = (definition_2_end_y + (partition * (i + 1)) - (meaning_size[1] if example != None else 0))# - meaning_size[1]/2
+            meaning_y = (length[k]['offset_y'] + (partition * (i + 1)) - (meaning_size[1] if example != None else 0))# - meaning_size[1]/2
             example_x = get_center_x(x, example_size[0])
-            example_y = (definition_2_end_y + (partition * (i + 1)))# - meaning_size[1]/2
+            example_y = (length[k]['offset_y'] + (partition * (i + 1)))# - meaning_size[1]/2
 
             draw_data.append({'meaning_x' : meaning_x, 'meaning_y' : meaning_y,
                                 'example_x' : example_x,'example_y' : example_y,
                                 'definition' : definition, 'example' : example,
-                                'font' : font, 'partOfSpeech' : definition_data[k][i][0]})
+                                'font' : font_normal, 'font_italic': font_italic,
+                                'partOfSpeech' : definition_data[k][i][0],
+                                'num_bullet_size_x' : num_bullet_size[0]})
             font_size = 28
-            #font = ImageFont.truetype("Quote.ttf", font_size)
+            font_normal = ImageFont.truetype(font_name, font_size)
 
-        min_x = min(min([(content['meaning_x'], content['example_x']) for content in draw_data]))
-        for i, content in enumerate(draw_data):
-            font_ = content['font']
-            example = content['example']
-            meaning_y = content['meaning_y']
+    min_x = min(min([(content['meaning_x'], content['example_x']) for content in draw_data]))
+    for i, content in enumerate(draw_data):
+        example = content['example']
+        meaning_y = content['meaning_y']
 
-            draw.text((min_x, content['meaning_y']), content['definition'], font=font_)
-            if example != None:
-                draw.text((min_x, content['example_y']), example, font=font_)
+        draw.text((min_x, content['meaning_y']), content['definition'], font=content['font'])
+        if example != None:
+            draw.text((content['num_bullet_size_x'] + min_x, content['example_y']), example, font=content['font_italic'])
 
 def get_dictionary_data(words):
     data = []
@@ -81,52 +87,54 @@ def get_dictionary_data(words):
             results_1_raw = soup.select('div > section:nth-of-type('+str(i+1)+') \
                                         div.msDict.sense > div.senseInnerWrapper > \
                                         span.definition')[:limit]
-
+            if not results_1_raw: #If there's no definition, no point going further
+                continue
             for j, definition in enumerate(results_1_raw):
                 results_2_raw = results_1_raw[j].parent.select("span.exampleGroup.exGrBreak \
                                                                 > em.example")
-                example = None if not results_2_raw else results_2_raw[0].text
+                example = None if not results_2_raw else '"'+results_2_raw[0].text+'"'
+                num_bullet = str(j+1)+".  " if limit == 2 else "1.  "
 
-                dictionary = {'definition' : definition.text.strip(), 'example' : example}
+                dictionary = {'definition' : num_bullet + definition.text.strip(), 'example' : example, 'num_bullet' : num_bullet}
                 definition_data.append([part_of_speech[i], dictionary])
         data.append(definition_data)
-    print data[0][0][0]
     return data
 
 def draw_pronunciation(draw, x, y, pronunciations, words_data):
     word_1_y, word_2_y, word_size_y = words_data
 
-    font = ImageFont.truetype("LinLibertine_DR.ttf", 24)
+    font = ImageFont.truetype("Pronunciation.ttf", 24)
 
     pronun_1_size = draw.textsize(pronunciations[0], font)
     pronun_2_size = draw.textsize(pronunciations[1], font)
 
-    pronun_1_x = (x - pronun_1_size[0]) / 2
+    pronun_1_x = get_center_x(x, pronun_1_size[0])
     pronun_1_y = (word_1_y - pronun_1_size[1])
 
-    pronun_2_x = (x - pronun_2_size[0]) / 2
+    pronun_2_x = get_center_x(x, pronun_2_size[0])
     pronun_2_y = (word_2_y + word_size_y)
 
     draw.text((pronun_1_x, pronun_1_y), pronunciations[0], font=font)
     draw.text((pronun_2_x, pronun_2_y), pronunciations[1], font=font)
 
-    pronunciation_data = (pronun_1_y, pronun_2_y, pronun_2_size[1])
+    pronunciation_data = {'pronun_1_y' : pronun_1_y, 'pronun_2_y' : pronun_2_y,
+                            'pronun_2_textsize_y' : pronun_2_size[1]}
     return pronunciation_data
 
 def get_pronunciation(words):
     return ["[kwid-nuhngk]", "[Pro-nun-ci-at-ion]"]
 
 def draw_words(draw, x, y, words):
-    font = ImageFont.truetype("Quote.ttf", 56)
+    font = ImageFont.truetype("Words.ttf", 56)
 
     word_1_size = draw.textsize(words[0], font) #Returns tuple (x, y)
     word_2_size = draw.textsize(words[1], font)
 
-    word_1_x = (x - word_1_size[0]) / 2
-    word_1_y = (y - word_1_size[1]) / 2 - y / 10
+    word_1_x = get_center_x(x, word_1_size[0])
+    word_1_y = (y - word_1_size[1]) / 2 - y / 13
 
-    word_2_x = (x - word_2_size[0]) / 2
-    word_2_y = (y - word_2_size[1]) / 2 + y / 10
+    word_2_x = get_center_x(x, word_2_size[0])
+    word_2_y = (y - word_2_size[1]) / 2 + y / 13
 
     draw.text((word_1_x, word_1_y), words[0], font=font)
     draw.text((word_2_x, word_2_y), words[1], font=font)
@@ -140,27 +148,28 @@ def get_words():
     for x in range(0, 2):
         page = requests.get(url, verify=False).text
         soup = BeautifulSoup(page, "lxml")
-        word = str(soup.select('div.wordPage')[0]['data-word']).title()
+        word = str(soup.select('div.wordPage')[0]['data-word']).upper()
         words.append(word)
 
     return words
 
-def draw_synonyms(draw, x, y, synonyms_1, synonyms_2):
+def draw_synonyms(draw, x, y, synonyms_1, synonyms_2): #To be scaled
     synonyms_1 = "Synonyms: " + ', '.join(synonyms_1)
     synonyms_2 = "Synonyms: " + ', '.join(synonyms_2)
     font = ImageFont.truetype("Quote.ttf", 24)
     synonyms_1_size = draw.textsize(synonyms_1, font)
     synonyms_1_x = get_center_x(x, synonyms_1_size[0])
-    synonyms_1_y = y / 15
+    synonyms_1_y = y / 13
 
     synonyms_2_size = draw.textsize(synonyms_2, font)
     synonyms_2_x = get_center_x(x, synonyms_2_size[0])
-    synonyms_2_y = y - (y / 15) - synonyms_2_size[1]
+    synonyms_2_y = y - (y / 13) - synonyms_2_size[1]
 
     draw.text((synonyms_1_x, synonyms_1_y), synonyms_1, font=font)
     draw.text((synonyms_2_x, synonyms_2_y), synonyms_2, font=font)
 
-    synonyms_data = (synonyms_1_y, synonyms_2_y, synonyms_1_size[1]) #Return a dict instead
+    synonyms_data = {'synonyms_1_y' : synonyms_1_y, 'synonyms_2_y': synonyms_2_y,
+                        'synonyms_1_textsize_y' : synonyms_1_size[1]}
     return synonyms_data
 
 def get_synonyms(word):
@@ -185,7 +194,7 @@ def draw_quote(draw, x, y, quote, author):
         quote_size = draw.textsize(quote, font)
     author_size = draw.textsize(author, font)
     center_x = get_center_x(x, quote_size[0])
-    center_y = get_center_y(y, quote_size[1]+author_size[1])
+    center_y = (y - (quote_size[1] + author_size[1])) / 2
     draw.text((center_x, center_y), quote, font=font)
     draw.text((get_center_x(x, author_size[0]), center_y + quote_size[1]), author, font=font)
 
@@ -205,31 +214,16 @@ def get_quote():
     else:
         return (default_quote, default_quote_author)
 
-def lol():
-    data = [
-        	    [
-        		    ['noun', {'definition': 'A person employed in an office or bank to keep records, accounts, and undertake other routine administrative duties:', 'example': 'a bank clerk'}],
-        	        ['verb', {'definition': 'Work as a clerk:','example': 'eleven of those who left college this year are clerking in auction stores'}]
-        	    ],
-                [{'asdf': 'asdf'}],
-        	    [
-        		    ['adjective', {'definition': 'Important; famous:', 'example': 'she was a prominent member of the city council'}],
-        	        ['noun', {'definition': 'A stout drab-coloured moth with tufts on the forewings which stick up while at rest, the caterpillars of which typically have fleshy growths on the back.'}]
-                ]
-                [{'asdf': 'asdf'}]
-            ]
-    print data
 def main():
-    #lol()
-    img = Image.open("image.jpg").crop((0,0,1440,900))
+    img = Image.open("image.jpg")#.crop((0,0,1440,900))
     draw = ImageDraw.Draw(img)
     x, y = img.size
 
     words = get_words()
     print words[0], words[1]
 
-    #quote, author = get_quote()
-    #draw_quote(draw, x, y, quote, author)
+    quote, author = get_quote()
+    draw_quote(draw, x, y, quote, author)
 
     synonyms_1 = get_synonyms(words[0])
     synonyms_2 = get_synonyms(words[1])
@@ -241,7 +235,7 @@ def main():
     if pronunciations is not None:
         p_data = draw_pronunciation(draw, x, y, pronunciations, words_data)
 
-    data = get_dictionary_data(['Clerk', 'Prominent'])
+    data = get_dictionary_data(words)
     draw_definition(draw, x, y, data, p_data, synonyms_data)
 
 
