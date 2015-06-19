@@ -1,21 +1,37 @@
+#!/usr/bin/python
 from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 from bs4 import BeautifulSoup
+from sys import platform
 
 import requests
+import os
+
 
 def changeBackground(image_path):
-    lol = ""
+    if platform == "darwin":
+        import subprocess
+        osx_script = """/usr/bin/osascript<<END
+tell application "Finder"
+set desktop picture to POSIX file "%s"
+end tell
+END"""
+        subprocess.Popen(osx_script%image_path, shell=True)
+        subprocess.call(['killall', 'Dock']) #To refresh the desktop
+    elif platform == "linux" or platform == "linux2":
+        None
+    elif platform == "win32":
+        None
+
 
 def get_center_x(x, text_size_x):
     center_x = (x - text_size_x) / 2
     return center_x
 
 def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
-    font_name, font_italic, font_size = "Definition.ttf", "Example.ttf", 28
+    font_name, font_size = "/Volumes/Raghav/WordWall/Definition.ttf", 28
     font_normal = ImageFont.truetype(font_name, font_size)
-    font_italic = ImageFont.truetype(font_italic, font_size)
 
     definition_1_start_y = synonyms_data['synonyms_1_y'] + synonyms_data['synonyms_1_textsize_y']
     definition_1_end_y = p_data['pronun_1_y']
@@ -38,7 +54,7 @@ def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
             example = definition_data[k][i][1]['example']
             num_bullet = definition_data[k][i][1]['num_bullet']
             meaning_size = draw.textsize(definition, font_normal)
-            example_size = draw.textsize(example, font_italic) if example != None else (0, 0)
+            example_size = draw.textsize(example, font_normal) if example != None else (0, 0)
             num_bullet_size = draw.textsize(num_bullet, font_normal)
 
             border = x - (x / 15)
@@ -46,9 +62,9 @@ def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
             while (meaning_size[0] > border or example_size[0] > border): #Need to do for y as well?
                 font_size -= 1
                 font_normal = ImageFont.truetype(font_name, font_size)
-                font_italic = ImageFont.truetype(font_italic, font_size)
                 meaning_size = draw.textsize(definition, font_normal)
-                example_size = draw.textsize(example, font_italic) if example != None else (0, 0)
+                example_size = draw.textsize(example, font_normal) if example != None else (0, 0)
+
             meaning_x = get_center_x(x, meaning_size[0])
             meaning_y = (length[k]['offset_y'] + (partition * (i + 1)) - (meaning_size[1] if example != None else 0))# - meaning_size[1]/2
             example_x = get_center_x(x, example_size[0])
@@ -57,7 +73,7 @@ def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
             draw_data.append({'meaning_x' : meaning_x, 'meaning_y' : meaning_y,
                                 'example_x' : example_x,'example_y' : example_y,
                                 'definition' : definition, 'example' : example,
-                                'font' : font_normal, 'font_italic': font_italic,
+                                'font' : font_normal,
                                 'partOfSpeech' : definition_data[k][i][0],
                                 'num_bullet_size_x' : num_bullet_size[0]})
             font_size = 28
@@ -70,7 +86,7 @@ def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
 
         draw.text((min_x, content['meaning_y']), content['definition'], font=content['font'])
         if example != None:
-            draw.text((content['num_bullet_size_x'] + min_x, content['example_y']), example, font=content['font_italic'])
+            draw.text((content['num_bullet_size_x'] + min_x, content['example_y']), example, font=content['font'])
 
 def get_dictionary_data(words):
     data = []
@@ -79,10 +95,10 @@ def get_dictionary_data(words):
         url = "http://www.oxforddictionaries.com/definition/english/" + word
         while True:
             try:
-                page = requests.get(url, verify=False).text
+                page = requests.get(url, timeout=5).text
                 break
-            except (request.exceptions.ConnectionError):
-                print "Exception occured in get_dictionary_data()"
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                print "ConnectionError occured in get_dictionary_data()"
                 pass
         soup = BeautifulSoup(page, "lxml")
 
@@ -118,7 +134,7 @@ def get_dictionary_data(words):
 def draw_pronunciation(draw, x, y, pronunciations, words_data):
     word_1_y, word_2_y, word_size_y = words_data
 
-    font = ImageFont.truetype("Pronunciation.otf", 22)
+    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Pronunciation.ttf", 22)
 
     pronun_1_size = draw.textsize(pronunciations[0], font)
     pronun_2_size = draw.textsize(pronunciations[1], font)
@@ -138,7 +154,7 @@ def draw_pronunciation(draw, x, y, pronunciations, words_data):
     return pronunciation_data
 
 def draw_words(draw, x, y, words):
-    font = ImageFont.truetype("Words.ttf", 56)
+    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Words.ttf", 56)
 
     word_1_size = draw.textsize(words[0], font) #Returns tuple (x, y)
     word_2_size = draw.textsize(words[1], font)
@@ -159,7 +175,13 @@ def get_words():
     words = []
 
     for x in range(0, 2):
-        page = requests.get(url, verify=False).text
+        while True:
+            try:
+                page = requests.get(url, timeout=5).text
+                break
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                print "ConnectionError occured in get_words()"
+                pass
         soup = BeautifulSoup(page, "lxml")
         word = str(soup.select('div.wordPage')[0]['data-word']).upper()
         words.append(word)
@@ -169,7 +191,7 @@ def get_words():
 def draw_synonyms(draw, x, y, synonyms_1, synonyms_2): #To be scaled
     synonyms_1 = "Synonyms: " + ', '.join(synonyms_1)
     synonyms_2 = "Synonyms: " + ', '.join(synonyms_2)
-    font = ImageFont.truetype("Quote.ttf", 24)
+    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", 24)
     synonyms_1_size = draw.textsize(synonyms_1, font)
     synonyms_1_x = get_center_x(x, synonyms_1_size[0])
     synonyms_1_y = y / 13
@@ -189,10 +211,10 @@ def get_synonyms(word):
     url = "http://www.thesaurus.com/browse/" + word
     while True:
         try:
-            page = requests.get(url, verify=False).text
+            page = requests.get(url, timeout=5).text
             break
-        except (request.exceptions.ConnectionError):
-            print "Exception occured in get_synonyms()"
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            print "ConnectionError occured in get_synonyms()"
             pass
     soup = BeautifulSoup(page, "lxml")
     synonyms = []
@@ -205,11 +227,11 @@ def get_synonyms(word):
 
 def draw_quote(draw, x, y, quote, author):
     font_size = 24
-    font = ImageFont.truetype("Quote.ttf", font_size)
+    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", font_size)
     quote_size = draw.textsize(quote, font)
     while (quote_size[0] > x - (x / 15)):
         font_size -= 1
-        font = ImageFont.truetype("Quote.ttf", font_size)
+        font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", font_size)
         quote_size = draw.textsize(quote, font)
 
     author_size = draw.textsize(author, font)
@@ -227,10 +249,10 @@ def get_quote():
     default_quote_author = 'Dr. Seuss'
     while True:
         try:
-            json = requests.get(api_url).json()
+            json = requests.get(api_url, timeout=5).json()
             break
-        except (requests.exceptions.ConnectionError):
-            print "Exception occured in get_quote()"
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            print "ConnectionError occured in get_quote()"
             pass
     content = json.get('contents')
 
@@ -243,7 +265,9 @@ def get_quote():
         return default_quote, default_quote_author
 
 def main():
-    img = Image.open("image.jpg")#.crop((0,0,1440,900))
+    img = Image.open("/Volumes/Raghav/WordWall/background.jpg")
+    img.thumbnail((1440,900))
+
     draw = ImageDraw.Draw(img)
     x, y = img.size
 
@@ -264,9 +288,9 @@ def main():
     p_data = draw_pronunciation(draw, x, y, pronunciations, words_data)
     draw_definition(draw, x, y, data, p_data, synonyms_data)
 
-
-    img.save('sample-out.jpg')
-    image_path = None
+    new_image_name = "/Volumes/Raghav/WordWall/wordwall.jpg"
+    img.save(new_image_name)
+    image_path = os.path.abspath(new_image_name)
     changeBackground(image_path)
 
 if __name__ == "__main__":
