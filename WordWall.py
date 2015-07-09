@@ -30,7 +30,7 @@ def get_center_x(x, text_size_x):
     return center_x
 
 def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
-    font_name, font_size = "/Volumes/Raghav/WordWall/Definition.ttf", 28
+    font_name, font_size = "Definition.ttf", 28
     font_normal = ImageFont.truetype(font_name, font_size)
 
     definition_1_start_y = synonyms_data['synonyms_1_y'] + synonyms_data['synonyms_1_textsize_y']
@@ -134,7 +134,7 @@ def get_dictionary_data(words):
 def draw_pronunciation(draw, x, y, pronunciations, words_data):
     word_1_y, word_2_y, word_size_y = words_data
 
-    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Pronunciation.ttf", 22)
+    font = ImageFont.truetype("Pronunciation.ttf", 22)
 
     pronun_1_size = draw.textsize(pronunciations[0], font)
     pronun_2_size = draw.textsize(pronunciations[1], font)
@@ -154,7 +154,7 @@ def draw_pronunciation(draw, x, y, pronunciations, words_data):
     return pronunciation_data
 
 def draw_words(draw, x, y, words):
-    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Words.ttf", 56)
+    font = ImageFont.truetype("Words.ttf", 56)
 
     word_1_size = draw.textsize(words[0], font) #Returns tuple (x, y)
     word_2_size = draw.textsize(words[1], font)
@@ -191,7 +191,7 @@ def get_words():
 def draw_synonyms(draw, x, y, synonyms_1, synonyms_2): #To be scaled
     synonyms_1 = "Synonyms: " + ', '.join(synonyms_1)
     synonyms_2 = "Synonyms: " + ', '.join(synonyms_2)
-    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", 24)
+    font = ImageFont.truetype("Quote.ttf", 24)
     synonyms_1_size = draw.textsize(synonyms_1, font)
     synonyms_1_x = get_center_x(x, synonyms_1_size[0])
     synonyms_1_y = y / 13
@@ -227,11 +227,11 @@ def get_synonyms(word):
 
 def draw_quote(draw, x, y, quote, author):
     font_size = 24
-    font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", font_size)
+    font = ImageFont.truetype("Quote.ttf", font_size)
     quote_size = draw.textsize(quote, font)
     while (quote_size[0] > x - (x / 15)):
         font_size -= 1
-        font = ImageFont.truetype("/Volumes/Raghav/WordWall/Quote.ttf", font_size)
+        font = ImageFont.truetype("Quote.ttf", font_size)
         quote_size = draw.textsize(quote, font)
 
     author_size = draw.textsize(author, font)
@@ -257,15 +257,15 @@ def get_quote():
     content = json.get('contents')
 
     if content is not None:
-        quote = content['quote']
-        author = content['author']
+        quote = content['quotes'][0]['quote']
+        author = content['quotes'][0]['author']
 
         return quote, author
     else:
         return default_quote, default_quote_author
 
 def main():
-    img = Image.open("/Volumes/Raghav/WordWall/background.jpg")
+    img = Image.open("background.jpg")
     img.thumbnail((1440,900))
 
     draw = ImageDraw.Draw(img)
@@ -288,7 +288,7 @@ def main():
     p_data = draw_pronunciation(draw, x, y, pronunciations, words_data)
     draw_definition(draw, x, y, data, p_data, synonyms_data)
 
-    new_image_name = "/Volumes/Raghav/WordWall/wordwall.jpg"
+    new_image_name = "wordwall.jpg"
     img.save(new_image_name)
     image_path = os.path.abspath(new_image_name)
     changeBackground(image_path)
