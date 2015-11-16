@@ -78,7 +78,6 @@ def draw_definition(draw, x, y, definition_data, p_data, synonyms_data):
                                 'num_bullet_size_x' : num_bullet_size[0]})
             font_size = 28
             font_normal = ImageFont.truetype(font_name, font_size)
-
     min_x = min(min([(content['meaning_x'], content['example_x']) for content in draw_data]))
     for i, content in enumerate(draw_data):
         example = content['example']
@@ -102,7 +101,7 @@ def get_dictionary_data(words):
                 pass
         soup = BeautifulSoup(page, "lxml")
 
-        results = soup.select('section.se1 > h3.partOfSpeechTitle >\
+        results = soup.select('section.se1 > h2.partOfSpeechTitle >\
                                 span.partOfSpeech')[:3]
         part_of_speech = [result.text for result in results]
         pronun_result_raw = soup.find("div", class_="headpron")
